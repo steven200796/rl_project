@@ -8,6 +8,8 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import VecFrameStack, VecVideoRecorder, DummyVecEnv, SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.env_util import make_atari_env
+import torch
+from distill import StudentModel
 
 MODEL_PATH = "pong"
 ENV_NAME = "ALE/Pong-v5"
@@ -59,7 +61,11 @@ def evaluate_policy_local(model, env, render, n_eval_episodes=10):
 def main(args):
     if args.model_path:
 #        env = setup_env()
-        model = PPO.load(args.model_path, verbose=1, n_steps=64, env = setup_env(), device="mps")
+        if args.torch_model:
+            model = torch.load(args.model_path)
+            model.to("mps")
+        else:
+            model = PPO.load(args.model_path, verbose=1, n_steps=64, env = setup_env(), device="mps")
 #        model.set_env(env)
     else:
         if args.evaluate:
@@ -69,17 +75,20 @@ def main(args):
 
     if not args.evaluate: 
         train(model)
+        args.render = True
 
-    env = make_atari_env(ENV_NAME, 1)#, env_kwargs={"render_mode":"human", "mode":0, "difficulty":0})
+    env = make_atari_env(ENV_NAME, 1, env_kwargs={"render_mode":"human", "mode":0, "difficulty":0})
     env = VecFrameStack(env, n_stack = 4)
 
-    mean_reward, std_reward = evaluate_policy_local(model, env, render=False, n_eval_episodes=10)
+    mean_reward, std_reward = evaluate_policy(model, env, render=args.render, n_eval_episodes=10)
     print(f"Mean reward: {mean_reward} +/- {std_reward}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train or evaluate a DQN agent for Pong")
     parser.add_argument("--evaluate", action="store_true", help="Load and evaluate an existing model")
     parser.add_argument("--model_path", type=str, help="Path to the existing model")
+    parser.add_argument("--torch_model", action="store_true", default=False, help="If model is regular torch model")
+    parser.add_argument("--render", type=bool, default=False, help="If model is regular torch model")
     args = parser.parse_args()
 
     main(args)
