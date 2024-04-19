@@ -5,27 +5,31 @@ from stable_baselines3 import DQN
 from stable_baselines3 import PPO
 from stable_baselines3.common.atari_wrappers import AtariWrapper
 from stable_baselines3.common.evaluation import evaluate_policy
-from stable_baselines3.common.vec_env import VecFrameStack, VecVideoRecorder, DummyVecEnv
+from stable_baselines3.common.vec_env import VecFrameStack, VecVideoRecorder, DummyVecEnv, SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.env_util import make_atari_env
 
-MODEL_PATH = "dqn_pong"
+MODEL_PATH = "pong"
 ENV_NAME = "ALE/Pong-v5"
 ENV_NAME = "PongNoFrameskip-v4"
-NUM_CPUS = 12
+NUM_CPUS = 10
+
+def setup_env():
+    env = make_atari_env(ENV_NAME, n_envs=40, seed=0)
+    env = VecFrameStack(env, n_stack=4)
+    return env
 
 def setup(BUFFER_SIZE=int(1e4)):
-    vec_env = make_vec_env(ENV_NAME, NUM_CPUS)
-#    vec_env = VecFrameStack(vec_env, n_stack = num_envs)
-    model = DQN("CnnPolicy", vec_env, buffer_size=BUFFER_SIZE, verbose=1)
-    return model, vec_env
+    env = setup_env()
+    model = PPO("CnnPolicy", env, verbose=1, n_steps=64, device="mps")#, buffer_size=BUFFER_SIZE)
+    return model, setup_env()
 
-def train(model, env, save_path=MODEL_PATH, timesteps=int(1e6)):
+def train(model, save_path=MODEL_PATH, timesteps=int(1e6)):
     # Train the agent
     model.learn(total_timesteps=timesteps, progress_bar=True)
 
     # Save the model
-    model.save("dqn_pong")
+    model.save(MODEL_PATH)
 
 def evaluate_policy_local(model, env, render, n_eval_episodes=10):
     """
@@ -54,22 +58,22 @@ def evaluate_policy_local(model, env, render, n_eval_episodes=10):
 
 def main(args):
     if args.model_path:
-        model, env = PPO.load(args.model_path), gym.make(ENV_NAME)
+#        env = setup_env()
+        model = PPO.load(args.model_path, verbose=1, n_steps=64, env = setup_env(), device="mps")
+#        model.set_env(env)
     else:
         if args.evaluate:
             model = PPO.load(MODEL_PATH)
         else:
-            model, env = setup()
+            model = setup()
 
     if not args.evaluate: 
-        train(model, env)
+        train(model)
 
-#    env = AtariWrapper(gym.make(ENV_NAME, render_mode="human"))
-    env = make_atari_env(ENV_NAME, 1, env_kwargs={"render_mode":"human", "mode":0, "difficulty":2})
-#    env = AtariWrapper(env)
+    env = make_atari_env(ENV_NAME, 1)#, env_kwargs={"render_mode":"human", "mode":0, "difficulty":0})
     env = VecFrameStack(env, n_stack = 4)
 
-    mean_reward, std_reward = evaluate_policy_local(model, env, render=True, n_eval_episodes=10)
+    mean_reward, std_reward = evaluate_policy_local(model, env, render=False, n_eval_episodes=10)
     print(f"Mean reward: {mean_reward} +/- {std_reward}")
 
 if __name__ == "__main__":
