@@ -25,11 +25,12 @@ ENV_NAME = "PongNoFrameskip-v4"
 class StudentModel(BasePolicy):
     def __init__(
         self,
-        obs_space,
-        act_space,
+        observation_space,
+        action_space,
+        normalize_images=False,
         features_dim: int = 512,
     ) -> None:
-        super(StudentModel, self).__init__(obs_space, act_space)
+        super(StudentModel, self).__init__(observation_space, action_space)
         n_input_channels = self.observation_space.shape[2]
         self.cnn = nn.Sequential(
             nn.Conv2d(n_input_channels, 32, kernel_size=8, stride=4, padding=0),
@@ -42,14 +43,15 @@ class StudentModel(BasePolicy):
         )
 
         with torch.no_grad():
-            n_flatten = self.cnn(torch.as_tensor(obs_space.sample().transpose(2,0,1)[None]).float()).shape[1]
+            n_flatten = self.cnn(torch.as_tensor(observation_space.sample().transpose(2,0,1)[None]).float()).shape[1]
 
-        self.linear = nn.Sequential(nn.Linear(n_flatten, features_dim), nn.ReLU(), nn.Linear(features_dim, act_space.n))
+        self.linear = nn.Sequential(nn.Linear(n_flatten, features_dim), nn.ReLU(), nn.Linear(features_dim, action_space.n))
 
     def forward(self, obs): 
         return self.linear(self.cnn(obs))
 
     def _predict(self, obs, deterministic = False, probs_only=False):
+        # Channel first hack to integrate with sb3, we can't get distributions without calling this directly but it's also needed to integrate with sb3 evaluations
         logits = self.forward(obs.permute(0,3,1,2).float())
         action_probs = torch.softmax(logits, dim=1)
 
@@ -65,7 +67,9 @@ class StudentModel(BasePolicy):
 def distill(teacher_model, student_model, env, student_led, n_iter, criterion, optimizer):
 #    student_model.train()
 #    teacher_model.eval()
-    eval_env = VecFrameStack(make_atari_env(ENV_NAME, 1), 4)
+    eval_env = VecFrameStack(make_atari_env(ENV_NAME, 10), 4)
+    #mean_reward, std_reward = evaluate_policy(student_model, eval_env)
+    #print(f"Mean reward: {mean_reward} +/- {std_reward}")
     obs = env.reset()
 
     #stepwise distillation, maybe batch / trajectory would do better?
@@ -75,10 +79,13 @@ def distill(teacher_model, student_model, env, student_led, n_iter, criterion, o
     scores.append(0)
     ep_rew = 0
     for i in range(int(n_iter)):
+        if i == 0:
+            mean_reward, std_reward = evaluate_policy(student_model, eval_env)
+            print(f"Mean reward: {mean_reward} +/- {std_reward}")
+
         done = False
 #        while not done:
         obs = obs_as_tensor(obs, teacher_model.policy.device)#.float()
-        old_obs = obs
         teacher_probs = teacher_model.policy.get_distribution(obs.permute(0,3,1,2)).distribution.probs
         student_probs = student_model._predict(obs, probs_only=True)
 
@@ -105,16 +112,11 @@ def distill(teacher_model, student_model, env, student_led, n_iter, criterion, o
         loss.backward()
         optimizer.step()
 
-        #with torch.no_grad():
-            #print(student_model._predict(old_obs))
         if i%100 == 0:
             print(i)
         if i % 1000 == 0:
-            print(scores)
             mean_reward, std_reward = evaluate_policy(student_model, eval_env)
             print(i, "Games Played:", games_played, "Running average:", sum(scores)/len(scores), f"Mean reward: {mean_reward} +/- {std_reward}")
-
-            
 
 def main(args):        
     env = make_atari_env(ENV_NAME, 50)
@@ -122,7 +124,8 @@ def main(args):
 
     teacher_model = PPO.load(args.teacher_path, device=args.device)
     if args.student_path:
-        student_model = load_from_zip_file(args.student_path)
+#        student_model = torch.load(args.student_path)
+        student_model = StudentModel.load(args.student_path, device=args.device)
     else:
         student_model = StudentModel(env.observation_space, env.action_space).to(args.device)
 
@@ -131,14 +134,16 @@ def main(args):
 
     distill(teacher_model, student_model, env, args.student_led, args.n, criterion, optimizer)
 
-    torch.save(student_model, args.save_path)
+#    torch.save(student_model, args.save_path)
+    student_model.save(args.save_path)
 
 if __name__ == "__main__":
+    #5e3
     parser = argparse.ArgumentParser(description="Distill a student agent for Pong")
     parser.add_argument("--teacher_path", required=True, type=str, help="Path to the teacher model")
     parser.add_argument("--student_path", type=str, help="Path to the student model")
     parser.add_argument("--save_path", default="student.pt", type=str, help="Path to the student model save path")
-    parser.add_argument("--student-led", type=bool, default=True, help="Model that generates the trajectories for distillation")
+    parser.add_argument("--student_led", type=bool, default=True, help="Model that generates the trajectories for distillation")
     parser.add_argument("--n", type=int, default=5e3, help="Number of episodes to distill over")
     parser.add_argument("--device", type=str, default="mps") 
 

@@ -62,8 +62,10 @@ def main(args):
     if args.model_path:
 #        env = setup_env()
         if args.torch_model:
-            model = torch.load(args.model_path)
-            model.to("mps")
+            model = StudentModel.load(args.model_path, device="mps")
+#            model = torch.load(args.model_path)
+#            model.eval()
+#            model.to("cpu")
         else:
             model = PPO.load(args.model_path, verbose=1, n_steps=64, env = setup_env(), device="mps")
 #        model.set_env(env)
@@ -75,12 +77,13 @@ def main(args):
 
     if not args.evaluate: 
         train(model)
-        args.render = True
 
-    env = make_atari_env(ENV_NAME, 1, env_kwargs={"render_mode":"human", "mode":0, "difficulty":0})
-    env = VecFrameStack(env, n_stack = 4)
+    eval_env = VecFrameStack(make_atari_env(ENV_NAME, 10), 4)#, env_kwargs={"render_mode":"human", "mode":0, "difficulty":0})
+#    env = VecFrameStack(env, n_stack = 4)
+#    env.reset()
+    print(model,eval_env)
 
-    mean_reward, std_reward = evaluate_policy(model, env, render=args.render, n_eval_episodes=10)
+    mean_reward, std_reward = evaluate_policy(model, eval_env)#, render=args.render)
     print(f"Mean reward: {mean_reward} +/- {std_reward}")
 
 if __name__ == "__main__":
