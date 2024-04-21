@@ -12,36 +12,24 @@ import torch
 from distill import StudentModel
 
 MODEL_PATH = "pong"
-ENV_NAME = "ALE/Pong-v5"
 ENV_NAME = "PongNoFrameskip-v4"
-NUM_CPUS = 10
 
 def setup_env():
     env = make_atari_env(ENV_NAME, n_envs=40, seed=0)
     env = VecFrameStack(env, n_stack=4)
     return env
 
-def setup(BUFFER_SIZE=int(1e4)):
+def setup_model(device="mps"):
     env = setup_env()
-    model = PPO("CnnPolicy", env, verbose=1, n_steps=64, device="mps")#, buffer_size=BUFFER_SIZE)
+    model = PPO("CnnPolicy", env, verbose=1, n_steps=64, device="mps")
     return model, setup_env()
 
 def train(model, save_path=MODEL_PATH, timesteps=int(1e6)):
-    # Train the agent
     model.learn(total_timesteps=timesteps, progress_bar=True)
-
-    # Save the model
     model.save(MODEL_PATH)
 
+#Code modified from SB3 for local evaluation tuning
 def evaluate_policy_local(model, env, render, n_eval_episodes=10):
-    """
-    Evaluate a RL agent policy.
-
-    :param model: The RL agent
-    :param env: The Gym environment
-    :param n_eval_episodes: Number of episodes to evaluate the agent
-    :return: Mean and standard deviation of rewards obtained
-    """
     episode_rewards = []
     for _ in range(n_eval_episodes):
         obs = env.reset()
@@ -60,27 +48,20 @@ def evaluate_policy_local(model, env, render, n_eval_episodes=10):
 
 def main(args):
     if args.model_path:
-#        env = setup_env()
         if args.torch_model:
-            model = StudentModel.load(args.model_path, device="mps")
-#            model = torch.load(args.model_path)
-#            model.eval()
-#            model.to("cpu")
+            model = StudentModel.load(args.model_path, device=args.device)
         else:
-            model = PPO.load(args.model_path, verbose=1, n_steps=64, env = setup_env(), device="mps")
-#        model.set_env(env)
+            model = PPO.load(args.model_path, verbose=1, n_steps=64, env = setup_env(), device=args.device)
     else:
         if args.evaluate:
             model = PPO.load(MODEL_PATH)
         else:
-            model = setup()
+            model = setup_model(device=args.device)
 
     if not args.evaluate: 
         train(model)
 
     eval_env = VecFrameStack(make_atari_env(ENV_NAME, 10), 4)#, env_kwargs={"render_mode":"human", "mode":0, "difficulty":0})
-#    env = VecFrameStack(env, n_stack = 4)
-#    env.reset()
     print(model,eval_env)
 
     mean_reward, std_reward = evaluate_policy(model, eval_env)#, render=args.render)
@@ -90,8 +71,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train or evaluate a DQN agent for Pong")
     parser.add_argument("--evaluate", action="store_true", help="Load and evaluate an existing model")
     parser.add_argument("--model_path", type=str, help="Path to the existing model")
-    parser.add_argument("--torch_model", action="store_true", default=False, help="If model is regular torch model")
+    parser.add_argument("--torch_model", action="store_true", default=False, help="If model is regular torch model (distilled student model)")
     parser.add_argument("--render", type=bool, default=False, help="If model is regular torch model")
+    parser.add_argument("--device", type=str, default="mps", help="Device, specify 'cpu' or 'gpu'")
     args = parser.parse_args()
 
     main(args)

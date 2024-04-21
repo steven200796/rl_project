@@ -138,7 +138,6 @@ def main(args):
     student_model.save(args.save_path)
 
 if __name__ == "__main__":
-    #5e3
     parser = argparse.ArgumentParser(description="Distill a student agent for Pong")
     parser.add_argument("--teacher_path", required=True, type=str, help="Path to the teacher model")
     parser.add_argument("--student_path", type=str, help="Path to the student model")
