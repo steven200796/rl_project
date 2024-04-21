@@ -11,7 +11,6 @@ from stable_baselines3.common.env_util import make_atari_env
 from distill import StudentModel
 from stable_baselines3.common.callbacks import EvalCallback
 
-MODEL_PATH = "pong"
 POLICY_TYPE = "CnnPolicy"
 ENV_NAME = "PongNoFrameskip-v4"
 #Default frame stack used in original DQN paper and subsequent works
@@ -24,14 +23,13 @@ def transform_env_no_transpose(env):
 def transform_env(env):
     return VecTransposeImage(transform_env_no_transpose(env))
 
-def setup_env(n_envs, seed=0):
-    env = make_atari_env(ENV_NAME, n_envs=n_envs, seed=seed)
+def setup_env(n_envs):
+    env = make_atari_env(ENV_NAME, n_envs=n_envs)
     env = transform_env(env)
     return env
 
 def setup_model(n_envs, n_steps, device):
     env = setup_env(n_envs)
-    print(env)
     model = PPO(POLICY_TYPE, env, verbose=1, n_steps=n_steps, device=device)
     return model
 
@@ -62,10 +60,10 @@ def main(args):
         if args.torch_model:
             model = StudentModel.load(args.model_path, device=args.device)
         else:
-            model = PPO.load(args.model_path, verbose=1, n_steps=args.n_steps, env = setup_env(), device=args.device)
+            model = PPO.load(args.model_path, verbose=1, n_steps=args.n_steps, env = setup_env(args.n_env), device=args.device)
     else:
         if args.eval_only:
-            model = PPO.load(MODEL_PATH)
+            model = PPO.load(args.save_path)
         else:
             model = setup_model(args.n_envs, args.n_steps, args.device)
 
@@ -101,9 +99,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    main(args)
-
-
-
-
-    
+    main(args) 
