@@ -15,7 +15,9 @@ POLICY_TYPE = "CnnPolicy"
 ENV_NAME = "PongNoFrameskip-v4"
 #Default frame stack used in original DQN paper and subsequent works
 N_FRAMES_STACK = 4
-NUM_ENVS = 50
+TB_LOG = "./pong_tensorboard/"
+# one game is 4k frames at minimum, default 100 window is too much
+STATS_WINDOW_SIZE = 100
 
 def transform_env_no_transpose(env):
     return VecFrameStack(env, N_FRAMES_STACK)
@@ -30,11 +32,11 @@ def setup_env(n_envs):
 
 def setup_model(n_envs, n_steps, device):
     env = setup_env(n_envs)
-    model = PPO(POLICY_TYPE, env, verbose=1, n_steps=n_steps, device=device)
+    model = PPO(POLICY_TYPE, env, verbose=1, n_steps=n_steps, device=device, tensorboard_log=TB_LOG, stats_window_size=STATS_WINDOW_SIZE)
     return model
 
 def train(model, timesteps, save_path, eval_callback=None):
-    model.learn(total_timesteps=timesteps, progress_bar=True, callback=eval_callback)
+    model.learn(total_timesteps=timesteps, progress_bar=True, callback=eval_callback, tb_log_name="bar")
     model.save(save_path)
 
 #Code modified from SB3 for local evaluation tuning
@@ -67,11 +69,11 @@ def main(args):
         else:
             model = setup_model(args.n_envs, args.n_steps, args.device)
 
-    eval_env = transform_env(make_atari_env(ENV_NAME, 10))
+    eval_env = transform_env(make_atari_env(ENV_NAME, args.n_eval_episodes))
     if not args.eval_only: 
         eval_callback = EvalCallback(eval_env, best_model_save_path="./logs/",
-                                     log_path="./logs/", n_eval_episodes=10, eval_freq = max(args.eval_freq // args.n_envs, 1),
-                                     deterministic=True, render=False, verbose=1)
+                                     log_path="./logs/", n_eval_episodes=args.n_eval_episodes, eval_freq = max(args.eval_freq // args.n_envs, 1),
+                                     deterministic=False, render=False, verbose=1)
         train(model, args.timesteps, args.save_path, eval_callback=eval_callback)
 
     # rendering seems to only work with 1 eval env
@@ -91,9 +93,10 @@ if __name__ == "__main__":
     parser.add_argument("--torch_model", action="store_true", default=False, help="If model is regular torch model (distilled student model)")
     parser.add_argument("--render", action="store_true", help="Render evaluation")
     parser.add_argument("--device", type=str, default="mps", help="Device, specify 'cpu' or 'gpu'")
-    parser.add_argument("--n_steps", type=int, default=256, help="Number of episode steps before PPO weights update, we choose 256 because a losing episode is roughly 200 steps per point")
-    parser.add_argument("--n_envs", type=int, default=50, help="Number of environments in vecenv")
+    parser.add_argument("--n_steps", type=int, default=128, help="Number of episode steps before PPO weights update, we choose 256 because a losing episode is roughly 200 steps per point")
+    parser.add_argument("--n_envs", type=int, default=40, help="Number of environments in vecenv")
     parser.add_argument("--eval_freq", type=int, default=5000, help="How frequently to evaluate the model (number of steps)")
+    parser.add_argument("--n-eval_episodes", type=int, default=5, help="How many evaluation episodes")
     parser.add_argument("--timesteps", type=int, default=2e6, help="Number of training timesteps")
     parser.add_argument("--save_path", type=str, default="pong_expert", help="Path to save trained model")
 
