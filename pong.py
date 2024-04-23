@@ -11,11 +11,15 @@ from stable_baselines3.common.env_util import make_atari_env
 from distill import StudentModel
 from stable_baselines3.common.callbacks import EvalCallback
 
+import logging
+import os
+import sys
+
 POLICY_TYPE = "CnnPolicy"
 ENV_NAME = "PongNoFrameskip-v4"
 #Default frame stack used in original DQN paper and subsequent works
 N_FRAMES_STACK = 4
-TB_LOG = "./pong_tensorboard/"
+TB_LOG = "./pong_run/"
 # one game is 4k frames at minimum, default 100 window is too much
 STATS_WINDOW_SIZE = 100
 
@@ -71,8 +75,8 @@ def main(args):
 
     eval_env = transform_env(make_atari_env(ENV_NAME, args.n_eval_episodes))
     if not args.eval_only: 
-        eval_callback = EvalCallback(eval_env, best_model_save_path="./logs/",
-                                     log_path="./logs/", n_eval_episodes=args.n_eval_episodes, eval_freq = max(args.eval_freq // args.n_envs, 1),
+        eval_callback = EvalCallback(eval_env, best_model_save_path="./pong_run/logs/",
+                                     log_path="./pong_run/logs/", n_eval_episodes=args.n_eval_episodes, eval_freq = max(args.eval_freq // args.n_envs, 1),
                                      deterministic=False, render=False, verbose=1)
         train(model, args.timesteps, args.save_path, eval_callback=eval_callback)
 
@@ -83,8 +87,8 @@ def main(args):
         # Env has to be recreated because evaluate policy wants a non-transposed environment
         eval_env = transform_env_no_transpose(make_atari_env(ENV_NAME, 10))
 
-    mean_reward, std_reward = evaluate_policy(model, eval_env)
-    print(f"Mean reward: {mean_reward} +/- {std_reward}")
+    mean_reward, std_reward = evaluate_policy(model, eval_env, n_eval_episodes=100)
+    logging.info(f"Mean reward: {mean_reward} +/- {std_reward} (over 100 episodes)")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train or evaluate a DQN agent for Pong")
@@ -98,8 +102,19 @@ if __name__ == "__main__":
     parser.add_argument("--eval_freq", type=int, default=5000, help="How frequently to evaluate the model (number of steps)")
     parser.add_argument("--n-eval_episodes", type=int, default=5, help="How many evaluation episodes")
     parser.add_argument("--timesteps", type=int, default=2e6, help="Number of training timesteps")
-    parser.add_argument("--save_path", type=str, default="pong_expert", help="Path to save trained model")
+    parser.add_argument("--save_path", type=str, default=f"pong_run/pong_expert", help="Path to save trained model")
 
     args = parser.parse_args()
+
+    os.makedirs("pong_run/", exist_ok=True)
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s] %(message)s",
+        handlers=[
+            logging.FileHandler("{0}/{1}.log".format("pong_run", "pong")),
+            logging.StreamHandler(sys.stdout)
+        ])
+    logging.info("Logging started with level: INFO")
 
     main(args) 
