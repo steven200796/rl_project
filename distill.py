@@ -78,14 +78,9 @@ def distill(teacher_model, student_model, env, student_led, n_iter, criterion, o
     #stepwise distillation, maybe batch / trajectory would do better?
     #future resets are automatically called in vecenv
     games_played = 0
-    scores = collections.deque(maxlen=100)
-    scores.append(0)
+    scores = collections.deque(maxlen=20)
     ep_rew = 0
     for i in range(int(n_iter)):
-        if i == 0:
-            mean_reward, std_reward = evaluate_policy(student_model, eval_env)
-            logging.info(f"Mean reward: {mean_reward} +/- {std_reward}")
-
         done = False
 #        while not done:
         obs = obs_as_tensor(obs, teacher_model.policy.device)#.float()
@@ -115,11 +110,11 @@ def distill(teacher_model, student_model, env, student_led, n_iter, criterion, o
         loss.backward()
         optimizer.step()
 
-        if i%100 == 0:
+        if i % 100 == 0:
             print(i)
-        if i % 1000 == 0:
+        if i % 500 == 0:
             mean_reward, std_reward = evaluate_policy(student_model, eval_env)
-            logging.info(f"{i} Games Played: {games_played} Running average: {sum(scores)/len(scores)} Mean reward: {mean_reward} +/- {std_reward} (over 10 episodes)")
+            logging.info(f"{i} Games Played: {games_played} Running average: {0 if len(scores) == 0 else sum(scores)/len(scores)} Mean reward: {mean_reward} +/- {std_reward} (over 10 episodes)")
     
     mean_reward, std_reward = evaluate_policy(student_model, eval_env, n_eval_episodes=100)
     logging.info(f"{i} Games Played: {games_played} Running average: {sum(scores)/len(scores)} Mean reward: {mean_reward} +/- {std_reward} (over 100 episodes)")
