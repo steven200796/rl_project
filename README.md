@@ -25,3 +25,8 @@ Limitations:
 While the moethod seems to address compounding errors from an initialized state, it's brittle as learning process guides student to optimal policy in every step resulting in little exploration. However, we argue this is ok so long as the student is never initialized in a bad location.
 
 Method does not continually learn and is not expected to do better than the teacher.
+
+Logging:
+* All `pong.py` runs log in `pong_run/` and all `distill.py` runs log in `distill_run/`
+* When you start a new run, either rename the old run's log folder or delete it; its contents will be overwritten/appended to
+* If you rename it, preferably rename it by appending to it (for example, appending a number) since this is covered by the `.gitignore`

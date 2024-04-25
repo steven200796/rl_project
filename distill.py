@@ -17,6 +17,9 @@ from stable_baselines3.common.save_util import save_to_zip_file, load_from_zip_f
 from stable_baselines3.common.policies import obs_as_tensor
 
 import collections
+import logging
+import sys
+import os
 
 MODEL_PATH = "pong"
 ENV_NAME = "PongNoFrameskip-v4"
@@ -81,7 +84,7 @@ def distill(teacher_model, student_model, env, student_led, n_iter, criterion, o
     for i in range(int(n_iter)):
         if i == 0:
             mean_reward, std_reward = evaluate_policy(student_model, eval_env)
-            print(f"Mean reward: {mean_reward} +/- {std_reward}")
+            logging.info(f"Mean reward: {mean_reward} +/- {std_reward}")
 
         done = False
 #        while not done:
@@ -116,9 +119,12 @@ def distill(teacher_model, student_model, env, student_led, n_iter, criterion, o
             print(i)
         if i % 1000 == 0:
             mean_reward, std_reward = evaluate_policy(student_model, eval_env)
-            print(i, "Games Played:", games_played, "Running average:", sum(scores)/len(scores), f"Mean reward: {mean_reward} +/- {std_reward}")
+            logging.info(f"{i} Games Played: {games_played} Running average: {sum(scores)/len(scores)} Mean reward: {mean_reward} +/- {std_reward} (over 10 episodes)")
+    
+    mean_reward, std_reward = evaluate_policy(student_model, eval_env, n_eval_episodes=100)
+    logging.info(f"{i} Games Played: {games_played} Running average: {sum(scores)/len(scores)} Mean reward: {mean_reward} +/- {std_reward} (over 100 episodes)")
 
-def main(args):        
+def main(args):
     env = make_atari_env(ENV_NAME, 50)
     env = VecFrameStack(env, n_stack = 4)
 
@@ -141,11 +147,22 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Distill a student agent for Pong")
     parser.add_argument("--teacher_path", required=True, type=str, help="Path to the teacher model")
     parser.add_argument("--student_path", type=str, help="Path to the student model")
-    parser.add_argument("--save_path", default="student.pt", type=str, help="Path to the student model save path")
+    parser.add_argument("--save_path", default="distill_run/student.pt", type=str, help="Path to the student model save path")
     parser.add_argument("--student_led", type=bool, default=True, help="Model that generates the trajectories for distillation")
-    parser.add_argument("--n", type=int, default=5e3, help="Number of episodes to distill over")
-    parser.add_argument("--device", type=str, default="mps") 
+    parser.add_argument("--n", type=int, default=7500, help="Number of episodes to distill over")
+    parser.add_argument("--device", type=str, default="mps")
 
     args = parser.parse_args()
+
+    os.makedirs("distill_run/", exist_ok=True)
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s] %(message)s",
+        handlers=[
+            logging.FileHandler("{0}/{1}.log".format("distill_run", "distill")),
+            logging.StreamHandler(sys.stdout)
+        ])
+    logging.info("Logging started with level: INFO")
 
     main(args)
