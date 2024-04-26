@@ -82,14 +82,9 @@ def distill(teacher_model, student_model, env, student_led, n_iter, criterion, o
     #stepwise distillation, maybe batch / trajectory would do better?
     #future resets are automatically called in vecenv
     games_played = 0
-    scores = collections.deque(maxlen=100)
-    scores.append(0)
+    scores = collections.deque(maxlen=20)
     ep_rew = 0
     for i in range(int(n_iter)):
-        if i == 0:
-            mean_reward, std_reward = evaluate_policy(student_model, eval_env)
-            logging.info(f"Mean reward: {mean_reward} +/- {std_reward}")
-
         done = False
 #        while not done:
         obs = obs_as_tensor(obs, teacher_model.policy.device)#.float()
@@ -125,7 +120,7 @@ def distill(teacher_model, student_model, env, student_led, n_iter, criterion, o
             rewards, ep_lengths = evaluate_policy(student_model, eval_env, return_episode_rewards=True)
             rewards = np.array(rewards)
             ep_lengths = np.array(ep_lengths)
-            logging.info(f"{i} Games Played: {games_played} Running average: {sum(scores)/len(scores)} Mean reward: {rewards.mean()} +/- {rewards.std()} (over 10 episodes)")
+            logging.info(f"{i} Games Played: {games_played} Running average: {0 if len(scores) == 0 else sum(scores)/len(scores)} Mean reward: {rewards.mean()} +/- {rewards.std()} (over 10 episodes)")
             npz_timesteps.append(i)
             npz_results.append(rewards)
             npz_ep_lengths.append(ep_lengths)
