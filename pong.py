@@ -100,7 +100,7 @@ if __name__ == "__main__":
     parser.add_argument("--n_steps", type=int, default=128, help="Number of episode steps before PPO weights update, we choose 256 because a losing episode is roughly 200 steps per point")
     parser.add_argument("--n_envs", type=int, default=40, help="Number of environments in vecenv")
     parser.add_argument("--eval_freq", type=int, default=5000, help="How frequently to evaluate the model (number of steps)")
-    parser.add_argument("--n-eval_episodes", type=int, default=5, help="How many evaluation episodes")
+    parser.add_argument("--n-eval_episodes", type=int, default=10, help="How many evaluation episodes")
     parser.add_argument("--timesteps", type=int, default=2e6, help="Number of training timesteps")
     parser.add_argument("--save_path", type=str, default=f"pong_run/pong_expert", help="Path to save trained model")
 

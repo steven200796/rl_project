@@ -75,6 +75,10 @@ def distill(teacher_model, student_model, env, student_led, n_iter, criterion, o
     #print(f"Mean reward: {mean_reward} +/- {std_reward}")
     obs = env.reset()
 
+    npz_timesteps = []
+    npz_results = []
+    npz_ep_lengths = []
+
     #stepwise distillation, maybe batch / trajectory would do better?
     #future resets are automatically called in vecenv
     games_played = 0
@@ -93,7 +97,7 @@ def distill(teacher_model, student_model, env, student_led, n_iter, criterion, o
         student_probs = student_model._predict(obs, probs_only=True)
 
 #            teacher_outputs = teacher_outputs / temperature
-#            student_outputs = student_outputs / temperature 
+#            student_outputs = student_outputs / temperature
 
         action_dist = student_probs if args.student_led else teacher_probs
         action = torch.argmax(action_dist, dim=1)
@@ -115,14 +119,24 @@ def distill(teacher_model, student_model, env, student_led, n_iter, criterion, o
         loss.backward()
         optimizer.step()
 
-        if i%100 == 0:
+        if i % 100 == 0:
             print(i)
         if i % 1000 == 0:
-            mean_reward, std_reward = evaluate_policy(student_model, eval_env)
-            logging.info(f"{i} Games Played: {games_played} Running average: {sum(scores)/len(scores)} Mean reward: {mean_reward} +/- {std_reward} (over 10 episodes)")
+            rewards, ep_lengths = evaluate_policy(student_model, eval_env, return_episode_rewards=True)
+            rewards = np.array(rewards)
+            ep_lengths = np.array(ep_lengths)
+            logging.info(f"{i} Games Played: {games_played} Running average: {sum(scores)/len(scores)} Mean reward: {rewards.mean()} +/- {rewards.std()} (over 10 episodes)")
+            npz_timesteps.append(i)
+            npz_results.append(rewards)
+            npz_ep_lengths.append(ep_lengths)
     
     mean_reward, std_reward = evaluate_policy(student_model, eval_env, n_eval_episodes=100)
     logging.info(f"{i} Games Played: {games_played} Running average: {sum(scores)/len(scores)} Mean reward: {mean_reward} +/- {std_reward} (over 100 episodes)")
+
+    npz_timesteps = np.array(npz_timesteps)
+    npz_results = np.array(npz_results)
+    npz_ep_lengths = np.array(npz_ep_lengths)
+    np.savez("distill_run/evaluations.npz", timesteps=npz_timesteps, results=npz_results, ep_lengths=npz_ep_lengths)
 
 def main(args):
     env = make_atari_env(ENV_NAME, 50)
@@ -149,7 +163,7 @@ if __name__ == "__main__":
     parser.add_argument("--student_path", type=str, help="Path to the student model")
     parser.add_argument("--save_path", default="distill_run/student.pt", type=str, help="Path to the student model save path")
     parser.add_argument("--student_led", type=bool, default=True, help="Model that generates the trajectories for distillation")
-    parser.add_argument("--n", type=int, default=7500, help="Number of episodes to distill over")
+    parser.add_argument("--n", type=int, default=10001, help="Number of episodes to distill over")
     parser.add_argument("--device", type=str, default="mps")
 
     args = parser.parse_args()
