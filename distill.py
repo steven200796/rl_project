@@ -30,25 +30,41 @@ class StudentModel(BasePolicy):
         self,
         observation_space,
         action_space,
+        student_model_type,
         normalize_images=False,
         features_dim: int = 512,
     ) -> None:
         super(StudentModel, self).__init__(observation_space, action_space)
         n_input_channels = self.observation_space.shape[2]
-        self.cnn = nn.Sequential(
-            nn.Conv2d(n_input_channels, 32, kernel_size=8, stride=4, padding=0),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0),
-            nn.ReLU(),
-            nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=0),
-            nn.ReLU(),
-            nn.Flatten(),
-        )
+
+        assert student_model_type in ("BCBL", "SCBL", "BCSL", "SCSL")
+
+        if student_model_type == "BCBL" or student_model_type == "BCSL":
+            self.cnn = nn.Sequential(
+                nn.Conv2d(n_input_channels, 32, kernel_size=8, stride=4, padding=0),
+                nn.ReLU(),
+                nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0),
+                nn.ReLU(),
+                nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=0),
+                nn.ReLU(),
+                nn.Flatten(),
+            )
+        else:
+            self.cnn = nn.Sequential(
+                nn.Conv2d(n_input_channels, 32, kernel_size=8, stride=4, padding=0),
+                nn.ReLU(),
+                nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0),
+                nn.ReLU(),
+                nn.Flatten(),
+            )
 
         with torch.no_grad():
             n_flatten = self.cnn(torch.as_tensor(observation_space.sample().transpose(2,0,1)[None]).float()).shape[1]
 
-        self.linear = nn.Sequential(nn.Linear(n_flatten, features_dim), nn.ReLU(), nn.Linear(features_dim, action_space.n))
+        if student_model_type == "BCBL" or student_model_type == "SCBL":
+            self.linear = nn.Sequential(nn.Linear(n_flatten, features_dim), nn.ReLU(), nn.Linear(features_dim, action_space.n))
+        else:
+            self.linear = nn.Linear(n_flatten, action_space.n)
 
     def forward(self, obs): 
         return self.linear(self.cnn(obs))
@@ -94,7 +110,7 @@ def distill(teacher_model, student_model, env, student_led, n_iter, criterion, o
 #            teacher_outputs = teacher_outputs / temperature
 #            student_outputs = student_outputs / temperature
 
-        action_dist = student_probs if args.student_led else teacher_probs
+        action_dist = student_probs if student_led else teacher_probs
         action = torch.argmax(action_dist, dim=1)
         obs, rew, done, _ = env.step(action)
 
@@ -142,12 +158,12 @@ def main(args):
 #        student_model = torch.load(args.student_path)
         student_model = StudentModel.load(args.student_path, device=args.device)
     else:
-        student_model = StudentModel(env.observation_space, env.action_space).to(args.device)
+        student_model = StudentModel(env.observation_space, env.action_space, args.student_model_type).to(args.device)
 
     criterion = nn.KLDivLoss(reduction='batchmean')
     optimizer = optim.Adam(student_model.parameters(), lr=0.0001)
 
-    distill(teacher_model, student_model, env, args.student_led, args.n, criterion, optimizer)
+    distill(teacher_model, student_model, env, not args.teacher_led, args.n, criterion, optimizer)
 
 #    torch.save(student_model, args.save_path)
     student_model.save(args.save_path)
@@ -157,9 +173,11 @@ if __name__ == "__main__":
     parser.add_argument("--teacher_path", required=True, type=str, help="Path to the teacher model")
     parser.add_argument("--student_path", type=str, help="Path to the student model")
     parser.add_argument("--save_path", default="distill_run/student.pt", type=str, help="Path to the student model save path")
-    parser.add_argument("--student_led", type=bool, default=True, help="Model that generates the trajectories for distillation")
-    parser.add_argument("--n", type=int, default=10001, help="Number of episodes to distill over")
+    parser.add_argument("--teacher_led", action="store_true", help="Model that generates the trajectories for distillation")
+    parser.add_argument("--n", type=int, default=20001, help="Number of episodes to distill over")
     parser.add_argument("--device", type=str, default="mps")
+    # BCSL = "Big Convolutional (layer), Small Linear (layer)", etc.
+    parser.add_argument("--student_model_type", type=str, default="BCBL", help="Which type of student model to use")
 
     args = parser.parse_args()
 
