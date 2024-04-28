@@ -104,12 +104,10 @@ def distill(teacher_model, student_model, env, student_led, n_iter, criterion, o
         scores.extendleft(ep_rew[done])
         ep_rew[done] = 0
 
-        # Compute the loss
         loss = criterion(torch.log(student_probs), teacher_probs)
         #print("student:", student_probs, "teacher:", teacher_probs)
         #print(loss)
         
-        # Backpropagation and optimization
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()

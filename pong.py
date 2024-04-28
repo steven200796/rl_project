@@ -40,7 +40,7 @@ def setup_model(n_envs, n_steps, device):
     return model
 
 def train(model, timesteps, save_path, eval_callback=None):
-    model.learn(total_timesteps=timesteps, progress_bar=True, callback=eval_callback, tb_log_name="bar")
+    model.learn(total_timesteps=timesteps, progress_bar=True, callback=eval_callback, tb_log_name="expert_run")
     model.save(save_path)
 
 #Code modified from SB3 for local evaluation tuning
@@ -66,7 +66,7 @@ def main(args):
         if args.torch_model:
             model = StudentModel.load(args.model_path, device=args.device)
         else:
-            model = PPO.load(args.model_path, verbose=1, n_steps=args.n_steps, env = setup_env(args.n_env), device=args.device)
+            model = PPO.load(args.model_path, verbose=1, n_steps=args.n_steps, env = setup_env(args.n_envs), device=args.device)
     else:
         if args.eval_only:
             model = PPO.load(args.save_path)
@@ -98,7 +98,7 @@ if __name__ == "__main__":
     parser.add_argument("--render", action="store_true", help="Render evaluation")
     parser.add_argument("--device", type=str, default="mps", help="Device, specify 'cpu' or 'gpu'")
     parser.add_argument("--n_steps", type=int, default=128, help="Number of episode steps before PPO weights update, we choose 256 because a losing episode is roughly 200 steps per point")
-    parser.add_argument("--n_envs", type=int, default=40, help="Number of environments in vecenv")
+    parser.add_argument("--n_envs", type=int, default=50, help="Number of environments in vecenv")
     parser.add_argument("--eval_freq", type=int, default=5000, help="How frequently to evaluate the model (number of steps)")
     parser.add_argument("--n-eval_episodes", type=int, default=10, help="How many evaluation episodes")
     parser.add_argument("--timesteps", type=int, default=2e6, help="Number of training timesteps")
