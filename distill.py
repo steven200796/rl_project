@@ -132,11 +132,11 @@ def distill(teacher_model, student_model, env, student_led, n_iter, criterion, o
 
         if i % 100 == 0:
             print(i)
-        if i % 1000 == 0:
-            rewards, ep_lengths = evaluate_policy(student_model, eval_env, return_episode_rewards=True)
+        if i % 500 == 0:
+            rewards, ep_lengths = evaluate_policy(student_model, eval_env, n_eval_episodes=30, return_episode_rewards=True)
             rewards = np.array(rewards)
             ep_lengths = np.array(ep_lengths)
-            logging.info(f"{i} Games Played: {games_played} Running average: {0 if len(scores) == 0 else sum(scores)/len(scores)} Mean reward: {rewards.mean()} +/- {rewards.std()} (over 10 episodes)")
+            logging.info(f"{i} Games Played: {games_played} Running average: {0 if len(scores) == 0 else sum(scores)/len(scores)} Mean reward: {rewards.mean()} +/- {rewards.std()} (over 30 episodes)")
             npz_timesteps.append(50 * i)
             npz_results.append(rewards)
             npz_ep_lengths.append(ep_lengths)

@@ -1,5 +1,5 @@
 __pycache__/
-distill_run*/
+*distill_run*/
 pong_run*/
 .DS_Store
 master.zip
