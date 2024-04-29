@@ -32,6 +32,7 @@ Files:
 * `figures/` contains several scripts for graphing figures
 
 Example Commands:
+
 Expert training
 ```
 python3 pong.py --save_path pong_run/pong_expert
