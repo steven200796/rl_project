@@ -31,6 +31,16 @@ Files:
 * `run_script.py` executes several distillation runs for comparisons
 * `figures/` contains several scripts for graphing figures
 
+Example Commands:
+Expert training
+```
+python3 pong.py --save_path pong_run/pong_expert
+```
+Distillation
+```
+python3 distill.py --teacher_path pong_run/pong_expert.zip --student_model_type BCBL
+```
+
 Logging:
 * All `pong.py` runs log in `pong_run/` and all `distill.py` runs log in `distill_run/`
 * When you start a new run, either rename the old run's log folder or delete it; its contents will be overwritten/appended to
