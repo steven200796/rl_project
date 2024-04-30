@@ -76,7 +76,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Plot standard deviations of episode scores')
     parser.add_argument('file_paths', nargs='+', type=str, help='Paths to the .npz files')
     parser.add_argument('--xlabel', type=str, default='Iteration', help='Label for the x-axis')
-    parser.add_argument('--ylabel', type=str, default='Mean score (over 10 episodes) and Std deviation', help='Label for the y-axis')
+    parser.add_argument('--ylabel', type=str, default='Mean score (over 30 episodes)', help='Label for the y-axis')
     parser.add_argument('--title', type=str, default='Scores', help='Title of the plot')
     parser.add_argument('--log_scale', action='store_true', help='Plot with a log scale cutoff')
     parser.add_argument('--no_shade', action='store_true', help='Don\'t shade 95% confidence interal')
