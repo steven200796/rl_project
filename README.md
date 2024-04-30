@@ -21,7 +21,7 @@ Ideas:
 Take an action after the update instead of before? -->
 
 Limitations:
-While the moethod seems to address compounding errors from an initialized state, it's brittle as learning process guides student to optimal policy in every step resulting in little exploration. However, we argue this is ok so long as the student is never initialized in a bad location.
+While the method seems to address compounding errors from an initialized state, it's brittle as learning process guides student to optimal policy in every step resulting in little exploration. However, we argue this is ok so long as the student is never initialized in a bad location.
 
 Method does not continually learn and is not expected to do better than the teacher.
 
